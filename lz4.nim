@@ -180,7 +180,6 @@ type
 # A little helper to do pointer arithmetics, borrowed from:
 #   https://github.com/fowlmouth/nimlibs/blob/master/fowltek/pointer_arithm.nim
 proc offset[cstring](some: cstring; b: int): cstring =
-  #result = cast[cstring](cast[int](some) + (b * sizeof(cstring)))
   result = cast[cstring](cast[int](some) + (b * 1))
   
 proc store_header(source:var string, value:uint32) =
@@ -191,7 +190,7 @@ proc store_header(source:var string, value:uint32) =
   source[2] = cast[char]((value shr 16) and 0xff)
   source[3] = cast[char]((value shr 24) and 0xff)
   
-proc load_header(source:var string):int =
+proc load_header(source:string):int =
   ## Extract header information from some bytes
   let c0 = cast[int](source[0])
   let c1 = cast[int](source[1])
@@ -210,6 +209,10 @@ proc print_char_values(s:string):string =
     result.add($int(s[i]) & "|")
 
 proc compress*(source:string, level:int=1):string =
+  ## Compress a string.
+  ## The compressed string contains a header that stores
+  ## the size of `source`. This is useful for decompression later
+  
   let compress_bound =  LZ4_compressBound(source.len) + HEADER_SIZE
   if compress_bound == 0:
     raise newException(LZ4Exception,"Input size to large")
@@ -238,7 +241,20 @@ proc compress*(source:string, level:int=1):string =
   
 
 proc uncompress*(source:string):string =
-  result = ""
+  ## Decompress a string. The compressed string is assumed to have
+  ## a header entry that stores the size of the original string
+  let uncompressed_size = load_header(source)
+  var dest = newString(uncompressed_size)
+  let bytes_decompressed = LZ4_decompress_safe(source=(cstring(source)).offset(HEADER_SIZE),
+                                               dest=cstring(dest),
+                                               compressedSize=cast[cint](source.len-HEADER_SIZE),
+                                               maxDecompressedSize=cast[cint](uncompressed_size))
+
+  echo("bytes_decompressed:" & $bytes_decompressed)
+  if bytes_decompressed < 0 :
+    raise newException(LZ4Exception,"Invalid input or buffer too small")
+   
+  result = dest
 
 #**********************************************
 #  Streaming Compression Functions
