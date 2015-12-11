@@ -24,6 +24,8 @@ const
   LZ4_VERSION_NUMBER* = (LZ4_VERSION_MAJOR * 100 * 100 + LZ4_VERSION_MINOR * 100 +
       LZ4_VERSION_RELEASE)
 
+  HEADER_SIZE = sizeof(uint32)
+  
 proc LZ4_version*(): cint {.cdecl, importc: "LZ4_versionNumber", dynlib: liblz4.}
 #*************************************
 #  Tuning parameter
@@ -208,8 +210,7 @@ proc print_char_values(s:string):string =
     result.add($int(s[i]) & "|")
 
 proc compress*(source:string, level:int=1):string =
-  let header_size = sizeof(uint32)
-  let compress_bound =  LZ4_compressBound(source.len) + header_size
+  let compress_bound =  LZ4_compressBound(source.len) + HEADER_SIZE
   if compress_bound == 0:
     raise newException(LZ4Exception,"Input size to large")
  
@@ -218,7 +219,7 @@ proc compress*(source:string, level:int=1):string =
     dest[i] = 'a'
     
   let bytes_written = LZ4_compress_fast(source=cstring(source),
-                                        dest=(cstring(dest)).offset(header_size),
+                                        dest=(cstring(dest)).offset(HEADER_SIZE),
                                         sourceSize=cast[cint](source.len),
                                         maxDestSize=cast[cint](compress_bound),
                                         acceleration=cast[cint](level))
@@ -228,7 +229,7 @@ proc compress*(source:string, level:int=1):string =
  
   store_header(dest,cast[uint32](source.len))
 
-  dest.setLen(bytes_written+header_size)
+  dest.setLen(bytes_written+HEADER_SIZE)
   echo ("header info:" & printable_header(dest) & "\n")
   echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
   echo ("last chars:" & print_char_values(dest[1000..1200]) & "\n")
