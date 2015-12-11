@@ -217,8 +217,8 @@ proc compress*(source:string, level:int=1):string =
   for i in 0..dest.len:
     dest[i] = 'a'
     
-  let bytes_written = LZ4_compress_fast(source=cast[cstring](source),
-                                        dest=(cast[cstring](dest)).offset(header_size),
+  let bytes_written = LZ4_compress_fast(source=cstring(source),
+                                        dest=(cstring(dest)).offset(header_size),
                                         sourceSize=cast[cint](source.len),
                                         maxDestSize=cast[cint](compress_bound),
                                         acceleration=cast[cint](level))
@@ -227,14 +227,12 @@ proc compress*(source:string, level:int=1):string =
     raise newException(LZ4Exception,"Destination buffer too small")
  
   store_header(dest,cast[uint32](source.len))
-  #echo ("header info:" & printable_header(dest) & "\n")
 
-  dest.setLen(bytes_written)
-  # echo ("header info:" & printable_header(dest) & "\n")
-  # echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
-  # echo ("last chars:" & print_char_values(dest[1000..1100]) & "\n")
-  # echo ("bytes_written: " & $bytes_written)
-  #echo ("first chars after compression:" & $int(dest[0]) & "\n")
+  dest.setLen(bytes_written+header_size)
+  echo ("header info:" & printable_header(dest) & "\n")
+  echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
+  echo ("last chars:" & print_char_values(dest[1000..1200]) & "\n")
+  echo ("bytes_written: " & $bytes_written)
   result = dest
   
 
