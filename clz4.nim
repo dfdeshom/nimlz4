@@ -25,21 +25,28 @@ const
       LZ4_VERSION_RELEASE)
 
   HEADER_SIZE* = sizeof(uint32)
-  
-proc LZ4_version*(): cint {.cdecl, importc: "LZ4_versionNumber", dynlib: liblz4.}
-#*************************************
-#  Tuning parameter
-#************************************
-#
-#  LZ4_MEMORY_USAGE :
-#  Memory usage formula : N->2^N Bytes (examples : 10 -> 1KB; 12 -> 4KB ; 16 -> 64KB; 20 -> 1MB; etc.)
-#  Increasing memory usage improves compression ratio
-#  Reduced memory usage can improve speed, due to cache effect
-#  Default value is 14, for 16KB, which nicely fits into Intel x86 L1 cache
-# 
 
-const
+  #*************************************
+  #  Tuning parameter
+  #************************************
+  #
+  #  LZ4_MEMORY_USAGE :
+  #  Memory usage formula : N->2^N Bytes (examples : 10 -> 1KB; 12 -> 4KB ; 16 -> 64KB; 20 -> 1MB; etc.)
+  #  Increasing memory usage improves compression ratio
+  #  Reduced memory usage can improve speed, due to cache effect
+  #  Default value is 14, for 16KB, which nicely fits into Intel x86 L1 cache
+  # 
   LZ4_MEMORY_USAGE* = 14
+
+  LZ4_MAX_INPUT_SIZE* = 0x7E000000
+  
+  LZ4_STREAMDECODESIZE_U64* = 4
+  LZ4_STREAMDECODESIZE* = (LZ4_STREAMDECODESIZE_U64 * sizeof(culonglong))
+
+  LZ4_STREAMSIZE_U64* = ((1 shl (LZ4_MEMORY_USAGE - 3)) + 4)
+  LZ4_STREAMSIZE* = (LZ4_STREAMSIZE_U64 * sizeof(clonglong))
+
+proc LZ4_version*(): cint {.cdecl, importc: "LZ4_versionNumber", dynlib: liblz4.}
 
 #*************************************
 #  Simple Functions
@@ -79,8 +86,8 @@ proc LZ4_decompress_safe*(source: cstring; dest: cstring; compressedSize: cint;
 #  Advanced Functions
 #************************************
 
-const
-  LZ4_MAX_INPUT_SIZE* = 0x7E000000
+
+
 
 template LZ4_COMPRESSBOUND*(isize: expr): expr =
   (if cast[cuint](isize) > cast[cuint](LZ4_MAX_INPUT_SIZE): 0 else: (isize) +
@@ -176,9 +183,6 @@ proc LZ4_decompress_safe_partial*(source: cstring; dest: cstring;
 #  Streaming Compression Functions
 #*********************************************
 
-const
-  LZ4_STREAMSIZE_U64* = ((1 shl (LZ4_MEMORY_USAGE - 3)) + 4)
-  LZ4_STREAMSIZE* = (LZ4_STREAMSIZE_U64 * sizeof(clonglong))
 
 #
 #  LZ4_stream_t
@@ -249,9 +253,6 @@ proc LZ4_saveDict*(streamPtr: ptr LZ4_stream_t; safeBuffer: cstring; dictSize: c
 #  Streaming Decompression Functions
 #**********************************************
 
-const
-  LZ4_STREAMDECODESIZE_U64* = 4
-  LZ4_STREAMDECODESIZE* = (LZ4_STREAMDECODESIZE_U64 * sizeof(culonglong))
 
 type
   LZ4_streamDecode_t* = object
