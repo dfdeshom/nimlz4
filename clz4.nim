@@ -193,16 +193,16 @@ proc LZ4_decompress_safe_partial*(source: cstring; dest: cstring;
 # 
 
 type
-  LZ4_stream_t* = object
+  LZ4Stream = object
     table*: array[LZ4_STREAMSIZE_U64, clonglong]
-
+  PLZ4Stream = ptr LZ4Stream
 
 #
 #  LZ4_resetStream
 #  Use this function to init an allocated LZ4_stream_t structure
 # 
 
-proc LZ4_resetStream*(streamPtr: ptr LZ4_stream_t) {.cdecl,
+proc LZ4_resetStream*(streamPtr: PLZ4Stream) {.cdecl,
     importc: "LZ4_resetStream", dynlib: liblz4.}
 #
 #  LZ4_createStream will allocate and initialize an LZ4_stream_t structure
@@ -211,9 +211,9 @@ proc LZ4_resetStream*(streamPtr: ptr LZ4_stream_t) {.cdecl,
 #  They are more future proof, in case of a change of LZ4_stream_t size.
 # 
 
-proc LZ4_createStream*(): ptr LZ4_stream_t {.cdecl, importc: "LZ4_createStream",
+proc LZ4_createStream*(): PLZ4Stream {.cdecl, importc: "LZ4_createStream",
     dynlib: liblz4.}
-proc LZ4_freeStream*(streamPtr: ptr LZ4_stream_t): cint {.cdecl,
+proc LZ4_freeStream*(streamPtr: PLZ4Stream): cint {.cdecl,
     importc: "LZ4_freeStream", dynlib: liblz4.}
 #
 #  LZ4_loadDict
@@ -223,7 +223,7 @@ proc LZ4_freeStream*(streamPtr: ptr LZ4_stream_t): cint {.cdecl,
 #  Return : dictionary size, in bytes (necessarily <= 64 KB)
 # 
 
-proc LZ4_loadDict*(streamPtr: ptr LZ4_stream_t; dictionary: cstring; dictSize: cint): cint {.
+proc LZ4_loadDict*(streamPtr: PLZ4Stream; dictionary: cstring; dictSize: cint): cint {.
     cdecl, importc: "LZ4_loadDict", dynlib: liblz4.}
 #
 #  LZ4_compress_fast_continue
@@ -234,7 +234,7 @@ proc LZ4_loadDict*(streamPtr: ptr LZ4_stream_t; dictionary: cstring; dictSize: c
 #  If not, and if compressed data cannot fit into 'dst' buffer size, compression stops, and function returns a zero.
 # 
 
-proc LZ4_compress_fast_continue*(streamPtr: ptr LZ4_stream_t; src: cstring;
+proc LZ4_compress_fast_continue*(streamPtr: PLZ4Stream; src: cstring;
                                 dst: cstring; srcSize: cint; maxDstSize: cint;
                                 acceleration: cint): cint {.cdecl,
     importc: "LZ4_compress_fast_continue", dynlib: liblz4.}
@@ -247,7 +247,7 @@ proc LZ4_compress_fast_continue*(streamPtr: ptr LZ4_stream_t; src: cstring;
 #  Return : saved dictionary size in bytes (necessarily <= dictSize), or 0 if error
 # 
 
-proc LZ4_saveDict*(streamPtr: ptr LZ4_stream_t; safeBuffer: cstring; dictSize: cint): cint {.
+proc LZ4_saveDict*(streamPtr: PLZ4Stream; safeBuffer: cstring; dictSize: cint): cint {.
     cdecl, importc: "LZ4_saveDict", dynlib: liblz4.}
 #***********************************************
 #  Streaming Decompression Functions
@@ -255,9 +255,9 @@ proc LZ4_saveDict*(streamPtr: ptr LZ4_stream_t; safeBuffer: cstring; dictSize: c
 
 
 type
-  LZ4_streamDecode_t* = object
+  LZ4StreamDecode = object
     table*: array[LZ4_STREAMDECODESIZE_U64, culonglong]
-
+  PLZ4StreamDecode = ptr LZ4StreamDecode
 
 #
 #  LZ4_streamDecode_t
@@ -270,9 +270,9 @@ type
 #  LZ4_freeStreamDecode releases its memory.
 # 
 
-proc LZ4_createStreamDecode*(): ptr LZ4_streamDecode_t {.cdecl,
+proc LZ4_createStreamDecode*(): PLZ4StreamDecode {.cdecl,
     importc: "LZ4_createStreamDecode", dynlib: liblz4.}
-proc LZ4_freeStreamDecode*(LZ4_stream: ptr LZ4_streamDecode_t): cint {.cdecl,
+proc LZ4_freeStreamDecode*(LZ4_stream: PLZ4StreamDecode): cint {.cdecl,
     importc: "LZ4_freeStreamDecode", dynlib: liblz4.}
 #
 #  LZ4_setStreamDecode
@@ -281,7 +281,7 @@ proc LZ4_freeStreamDecode*(LZ4_stream: ptr LZ4_streamDecode_t): cint {.cdecl,
 #  Return : 1 if OK, 0 if error
 # 
 
-proc LZ4_setStreamDecode*(LZ4_streamDecode: ptr LZ4_streamDecode_t;
+proc LZ4_setStreamDecode*(LZ4_streamDecode: PLZ4StreamDecode;
                          dictionary: cstring; dictSize: cint): cint {.cdecl,
     importc: "LZ4_setStreamDecode", dynlib: liblz4.}
 #
@@ -302,11 +302,11 @@ proc LZ4_setStreamDecode*(LZ4_streamDecode: ptr LZ4_streamDecode_t;
 #    and indicate where it is saved using LZ4_setStreamDecode()
 #
 
-proc LZ4_decompress_safe_continue*(LZ4_streamDecode: ptr LZ4_streamDecode_t;
+proc LZ4_decompress_safe_continue*(LZ4_streamDecode: PLZ4StreamDecode;
                                   source: cstring; dest: cstring;
                                   compressedSize: cint; maxDecompressedSize: cint): cint {.
     cdecl, importc: "LZ4_decompress_safe_continue", dynlib: liblz4.}
-proc LZ4_decompress_fast_continue*(LZ4_streamDecode: ptr LZ4_streamDecode_t;
+proc LZ4_decompress_fast_continue*(LZ4_streamDecode: PLZ4StreamDecode;
                                   source: cstring; dest: cstring; originalSize: cint): cint {.
     cdecl, importc: "LZ4_decompress_fast_continue", dynlib: liblz4.}
 #
