@@ -106,7 +106,7 @@ proc LZ4_compressBound*(inputSize: cint): cint {.cdecl, importc: "LZ4_compressBo
 #    Values <= 0 will be replaced by ACCELERATION_DEFAULT (see lz4.c), which is 1.
 #
 
-proc LZ4_compress_fast*(source: cstring; dest: cstring; sourceSize: cint;
+proc LZ4_compress_fast*(source: cstring; dest:cstring; sourceSize: cint;
                        maxDestSize: cint; acceleration: cint): cint {.cdecl,
     importc: "LZ4_compress_fast", dynlib: liblz4.}
 #
@@ -172,39 +172,71 @@ proc LZ4_decompress_safe_partial*(source: cstring; dest: cstring;
 #
 # Nim high-level API
 #
-type LZ4Exception* = object of Exception
+type
+  LZ4Exception* = object of Exception
 
 # A little helper to do pointer arithmetics, borrowed from:
 #   https://github.com/fowlmouth/nimlibs/blob/master/fowltek/pointer_arithm.nim
-proc offset[A](some: ptr A; b: int): ptr A =
-  result = cast[ptr A](cast[int](some) + (b * sizeof(A)))
+proc offset[cstring](some: cstring; b: int): cstring =
+  #result = cast[cstring](cast[int](some) + (b * sizeof(cstring)))
+  result = cast[cstring](cast[int](some) + (b * 1))
   
-proc store_header(source:ptr char ,value:int):string =
-  #var c = offset(source,0)
-  #c = value and 0xff
-  source[0] = 'c'
+proc store_header(source:var string, value:uint32) =
+  ## store header information in `source`. We pre-pad this
+  ## information to any compressed bytes we have
+  source[0] = cast[char](value and 0xff)
+  source[1] = cast[char]((value shr 8) and 0xff)
+  source[2] = cast[char]((value shr 16) and 0xff)
+  source[3] = cast[char]((value shr 24) and 0xff)
   
-proc extract_header(s:string):int =
-  result = 0
-  
+proc load_header(source:var string):int =
+  ## Extract header information from some bytes
+  let c0 = cast[int](source[0])
+  let c1 = cast[int](source[1])
+  let c2 = cast[int](source[2])
+  let c3 = cast[int](source[3])
+  return (c0 or (c1 shl 8) or (c2 shl 16) or (c3 shl 23))
+
+proc printable_header(s:string):string =
+  result = ""
+  for i in 0..100:
+    result.add($int(s[i]) & "|")
+
+proc print_char_values(s:string):string =
+  result = ""
+  for i in s.low..s.high:
+    result.add($int(s[i]) & "|")
+
 proc compress*(source:string, level:int=1):string =
-  let compress_bound =  LZ4_compressBound(source.len)
+  let header_size = sizeof(uint32)
+  let compress_bound =  LZ4_compressBound(source.len) + header_size
   if compress_bound == 0:
     raise newException(LZ4Exception,"Input size to large")
-  var dest = newStringOfCap(compress_bound)
+ 
+  var dest = newString(compress_bound)
+  for i in 0..dest.len:
+    dest[i] = 'a'
+    
   let bytes_written = LZ4_compress_fast(source=cast[cstring](source),
-                                        dest=cast[cstring](dest),
+                                        dest=(cast[cstring](dest)).offset(header_size),
                                         sourceSize=cast[cint](source.len),
                                         maxDestSize=cast[cint](compress_bound),
                                         acceleration=cast[cint](level))
+                                        
   if bytes_written == 0:
-    raise newException(LZ4Exception,"Compression failed")
-
-  if bytes_written < 0:
     raise newException(LZ4Exception,"Destination buffer too small")
-  
+ 
+  store_header(dest,cast[uint32](source.len))
+  #echo ("header info:" & printable_header(dest) & "\n")
+
   dest.setLen(bytes_written)
+  # echo ("header info:" & printable_header(dest) & "\n")
+  # echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
+  # echo ("last chars:" & print_char_values(dest[1000..1100]) & "\n")
+  # echo ("bytes_written: " & $bytes_written)
+  #echo ("first chars after compression:" & $int(dest[0]) & "\n")
   result = dest
+  
 
 proc uncompress*(source:string):string =
   result = ""
