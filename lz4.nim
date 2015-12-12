@@ -3,6 +3,7 @@
 #
 
 import clz4
+import clz4frame
 
 type
   LZ4Exception* = object of Exception
@@ -85,3 +86,34 @@ proc uncompress*(source:string):string =
     raise newException(LZ4Exception,"Invalid input or buffer too small")
    
   result = dest
+
+
+#
+# Framing API
+#
+
+proc newLZ4F_frameInfo():LZ4F_frameInfo =
+  var info:LZ4F_frameInfo
+  info.blockSizeID = LZ4F_blockSizeID.LZ4F_default
+  info.blockMode = LZ4F_blockMode.LZ4F_blockLinked
+  info.contentChecksumFlag = LZ4F_contentChecksum.LZ4F_noContentChecksum
+  info.frameType = LZ4F_frameType.LZ4F_frame
+  info.contentSize = 0
+  result = info
+  
+proc newLZ4F_preferences(frame_info:LZ4F_frameInfo,
+                         compressionLevel:int=0,
+                         autoFlush:int=1):LZ4F_preferences =
+  var res:LZ4F_preferences
+  res.frameInfo = frame_info
+  res.compressionLevel = cint(compressionLevel)
+  res.autoFlush = cuint(autoFlush)
+  result = res
+
+proc newLZ4F_preferences(compressionLevel:int=0,
+                         autoFlush:int=1):LZ4F_preferences =
+  var res:LZ4F_preferences
+  res.frameInfo = newLZ4F_frameInfo()
+  res.compressionLevel = cint(compressionLevel)
+  res.autoFlush = cuint(autoFlush)
+  result = res

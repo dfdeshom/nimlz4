@@ -1,3 +1,13 @@
+{.deadCodeElim: on.}
+when defined(windows): 
+  const 
+    liblz4* = "liblz4.dll"
+elif defined(macosx): 
+  const 
+    liblz4* = "liblz4.dylib"
+else: 
+  const 
+    liblz4* = "liblz4.so.1"
 
 #*************************************
 #  Error management
