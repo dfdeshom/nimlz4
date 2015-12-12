@@ -4,11 +4,11 @@
 #  ***********************************
 
 type
-  LZ4F_errorCode_t* = csize
+  LZ4F_errorCode* = csize
 
-proc LZ4F_isError*(code: LZ4F_errorCode_t): cuint {.cdecl, importc: "LZ4F_isError",
+proc LZ4F_isError*(code: LZ4F_errorCode): cuint {.cdecl, importc: "LZ4F_isError",
     dynlib: liblz4.}
-proc LZ4F_getErrorName*(code: LZ4F_errorCode_t): cstring {.cdecl,
+proc LZ4F_getErrorName*(code: LZ4F_errorCode): cstring {.cdecl,
     importc: "LZ4F_getErrorName", dynlib: liblz4.}
 # return error code string; useful for debugging 
 #*************************************
@@ -16,56 +16,56 @@ proc LZ4F_getErrorName*(code: LZ4F_errorCode_t): cstring {.cdecl,
 #  ***********************************
 
 type
-  LZ4F_blockSizeID_t* {.size: sizeof(cint).} = enum
+  LZ4F_blockSizeID* {.size: sizeof(cint).} = enum
     LZ4F_default = 0,
     LZ4F_max64KB = 4,
     LZ4F_max256KB = 5,
     LZ4F_max1MB = 6,
     LZ4F_max4MB = 7
 
-  LZ4F_blockMode_t* {.size: sizeof(cint).} = enum
+  LZ4F_blockMode* {.size: sizeof(cint).} = enum
     LZ4F_blockLinked = 0,
     LZ4F_blockIndependent
 
-  LZ4F_contentChecksum_t* {.size: sizeof(cint).} = enum
+  LZ4F_contentChecksum* {.size: sizeof(cint).} = enum
     LZ4F_noContentChecksum = 0,
     LZ4F_contentChecksumEnabled
 
-  LZ4F_frameType_t* {.size: sizeof(cint).} = enum
+  LZ4F_frameType* {.size: sizeof(cint).} = enum
     LZ4F_frame = 0,
     LZ4F_skippableFrame
  
-  blockSizeID_t* = LZ4F_blockSizeID_t
-  blockMode_t* = LZ4F_blockMode_t
-  frameType_t* = LZ4F_frameType_t
-  contentChecksum_t* = LZ4F_contentChecksum_t
+  blockSizeID* = LZ4F_blockSizeID
+  blockMode* = LZ4F_blockMode
+  frameType* = LZ4F_frameType
+  contentChecksum* = LZ4F_contentChecksum
 
-  LZ4F_frameInfo_t* = object
-    blockSizeID*: LZ4F_blockSizeID_t # max64KB, max256KB, max1MB, max4MB ; 0 == default 
-    blockMode*: LZ4F_blockMode_t # blockLinked, blockIndependent ; 0 == default 
-    contentChecksumFlag*: LZ4F_contentChecksum_t # noContentChecksum, contentChecksumEnabled ; 0 == default  
-    frameType*: LZ4F_frameType_t # LZ4F_frame, skippableFrame ; 0 == default 
+  LZ4F_frameInfo* = object
+    blockSizeID*: LZ4F_blockSizeID # max64KB, max256KB, max1MB, max4MB ; 0 == default 
+    blockMode*: LZ4F_blockMode # blockLinked, blockIndependent ; 0 == default 
+    contentChecksumFlag*: LZ4F_contentChecksum # noContentChecksum, contentChecksumEnabled ; 0 == default  
+    frameType*: LZ4F_frameType # LZ4F_frame, skippableFrame ; 0 == default 
     contentSize*: culonglong   # Size of uncompressed (original) content ; 0 == unknown 
     reserved*: array[2, cuint]  # must be zero for forward compatibility 
   
-  LZ4F_preferences_t* = object
-    frameInfo*: LZ4F_frameInfo_t
+  LZ4F_preferences* = object
+    frameInfo*: LZ4F_frameInfo
     compressionLevel*: cint    # 0 == default (fast mode); values above 16 count as 16; values below 0 count as 0 
     autoFlush*: cuint          # 1 == always flush (reduce need for tmp buffer) 
     reserved*: array[4, cuint]  # must be zero for forward compatibility 
 
-  LZ4F_compressionContext_t* = ptr object
+  LZ4F_compressionContext* = ptr object
     
   # must be aligned on 8-bytes 
-  LZ4F_compressOptions_t* = object
+  LZ4F_compressOptions* = object
     stableSrc*: cuint          # 1 == src content will remain available on future calls to LZ4F_compress(); avoid saving src content within tmp buffer as future dictionary 
     reserved*: array[3, cuint]
 
 
-  LZ4F_decompressionContext_t* = ptr object
+  LZ4F_decompressionContext* = ptr object
 
   # must be aligned on 8-bytes 
-  LZ4F_decompressOptions_t* = object
+  LZ4F_decompressOptions* = object
     stableDst*: cuint          # guarantee that decompressed data will still be there on next function calls (avoid storage into tmp buffers) 
     reserved*: array[3, cuint]
 
@@ -77,17 +77,17 @@ const
 #  ********************************
 
 proc LZ4F_compressFrameBound*(srcSize: csize;
-                             preferencesPtr: ptr LZ4F_preferences_t): csize {.cdecl,
+                             preferencesPtr: ptr LZ4F_preferences): csize {.cdecl,
     importc: "LZ4F_compressFrameBound", dynlib: liblz4.}
 proc LZ4F_compressFrame*(dstBuffer: pointer; dstMaxSize: csize; srcBuffer: pointer;
-                        srcSize: csize; preferencesPtr: ptr LZ4F_preferences_t): csize {.
+                        srcSize: csize; preferencesPtr: ptr LZ4F_preferences): csize {.
     cdecl, importc: "LZ4F_compressFrame", dynlib: liblz4.}
 # LZ4F_compressFrame()
 #  Compress an entire srcBuffer into a valid LZ4 frame, as defined by specification v1.5.1
 #  The most important rule is that dstBuffer MUST be large enough (dstMaxSize) to ensure compression completion even in worst case.
 #  You can get the minimum value of dstMaxSize by using LZ4F_compressFrameBound()
 #  If this condition is not respected, LZ4F_compressFrame() will fail (result is an errorCode)
-#  The LZ4F_preferences_t structure is optional : you can provide NULL as argument. All preferences will be set to default.
+#  The LZ4F_preferences structure is optional : you can provide NULL as argument. All preferences will be set to default.
 #  The result of the function is the number of bytes written into dstBuffer.
 #  The function outputs an error code if it fails (can be tested using LZ4F_isError())
 # 
@@ -96,23 +96,23 @@ proc LZ4F_compressFrame*(dstBuffer: pointer; dstMaxSize: csize; srcBuffer: point
 #********************************
 
 # Resource Management 
-proc LZ4F_createCompressionContext*(cctxPtr: ptr LZ4F_compressionContext_t;
-                                   version: cuint): LZ4F_errorCode_t {.cdecl,
+proc LZ4F_createCompressionContext*(cctxPtr: ptr LZ4F_compressionContext;
+                                   version: cuint): LZ4F_errorCode {.cdecl,
     importc: "LZ4F_createCompressionContext", dynlib: liblz4.}
-proc LZ4F_freeCompressionContext*(cctx: LZ4F_compressionContext_t): LZ4F_errorCode_t {.
+proc LZ4F_freeCompressionContext*(cctx: LZ4F_compressionContext): LZ4F_errorCode {.
     cdecl, importc: "LZ4F_freeCompressionContext", dynlib: liblz4.}
 # LZ4F_createCompressionContext() :
 #  The first thing to do is to create a compressionContext object, which will be used in all compression operations.
-#  This is achieved using LZ4F_createCompressionContext(), which takes as argument a version and an LZ4F_preferences_t structure.
+#  This is achieved using LZ4F_createCompressionContext(), which takes as argument a version and an LZ4F_preferences structure.
 #  The version provided MUST be LZ4F_VERSION. It is intended to track potential version differences between different binaries.
-#  The function will provide a pointer to a fully allocated LZ4F_compressionContext_t object.
-#  If the result LZ4F_errorCode_t is not zero, there was an error during context creation.
+#  The function will provide a pointer to a fully allocated LZ4F_compressionContext object.
+#  If the result LZ4F_errorCode is not zero, there was an error during context creation.
 #  Object can release its memory using LZ4F_freeCompressionContext();
 # 
 # Compression 
 
-proc LZ4F_compressBegin*(cctx: LZ4F_compressionContext_t; dstBuffer: pointer;
-                        dstMaxSize: csize; prefsPtr: ptr LZ4F_preferences_t): csize {.
+proc LZ4F_compressBegin*(cctx: LZ4F_compressionContext; dstBuffer: pointer;
+                        dstMaxSize: csize; prefsPtr: ptr LZ4F_preferences): csize {.
     cdecl, importc: "LZ4F_compressBegin", dynlib: liblz4.}
 # LZ4F_compressBegin() :
 #  will write the frame header into dstBuffer.
@@ -122,7 +122,7 @@ proc LZ4F_compressBegin*(cctx: LZ4F_compressionContext_t; dstBuffer: pointer;
 #  or an error code (can be tested using LZ4F_isError())
 # 
 
-proc LZ4F_compressBound*(srcSize: csize; prefsPtr: ptr LZ4F_preferences_t): csize {.
+proc LZ4F_compressBound*(srcSize: csize; prefsPtr: ptr LZ4F_preferences): csize {.
     cdecl, importc: "LZ4F_compressBound", dynlib: liblz4.}
 # LZ4F_compressBound() :
 #  Provides the minimum size of Dst buffer given srcSize to handle worst case situations.
@@ -131,9 +131,9 @@ proc LZ4F_compressBound*(srcSize: csize; prefsPtr: ptr LZ4F_preferences_t): csiz
 #  This function includes frame termination cost (4 bytes, or 8 if frame checksum is enabled)
 # 
 
-proc LZ4F_compressUpdate*(cctx: LZ4F_compressionContext_t; dstBuffer: pointer;
+proc LZ4F_compressUpdate*(cctx: LZ4F_compressionContext; dstBuffer: pointer;
                          dstMaxSize: csize; srcBuffer: pointer; srcSize: csize;
-                         cOptPtr: ptr LZ4F_compressOptions_t): csize {.cdecl,
+                         cOptPtr: ptr LZ4F_compressOptions): csize {.cdecl,
     importc: "LZ4F_compressUpdate", dynlib: liblz4.}
 # LZ4F_compressUpdate()
 #  LZ4F_compressUpdate() can be called repetitively to compress as much data as necessary.
@@ -141,13 +141,13 @@ proc LZ4F_compressUpdate*(cctx: LZ4F_compressionContext_t; dstBuffer: pointer;
 #  You can get the minimum value of dstMaxSize by using LZ4F_compressBound().
 #  If this condition is not respected, LZ4F_compress() will fail (result is an errorCode).
 #  LZ4F_compressUpdate() doesn't guarantee error recovery, so you have to reset compression context when an error occurs.
-#  The LZ4F_compressOptions_t structure is optional : you can provide NULL as argument.
+#  The LZ4F_compressOptions structure is optional : you can provide NULL as argument.
 #  The result of the function is the number of bytes written into dstBuffer : it can be zero, meaning input data was just buffered.
 #  The function outputs an error code if it fails (can be tested using LZ4F_isError())
 # 
 
-proc LZ4F_flush*(cctx: LZ4F_compressionContext_t; dstBuffer: pointer;
-                dstMaxSize: csize; cOptPtr: ptr LZ4F_compressOptions_t): csize {.
+proc LZ4F_flush*(cctx: LZ4F_compressionContext; dstBuffer: pointer;
+                dstMaxSize: csize; cOptPtr: ptr LZ4F_compressOptions): csize {.
     cdecl, importc: "LZ4F_flush", dynlib: liblz4.}
 # LZ4F_flush()
 #  Should you need to generate compressed data immediately, without waiting for the current block to be filled,
@@ -159,8 +159,8 @@ proc LZ4F_flush*(cctx: LZ4F_compressionContext_t; dstBuffer: pointer;
 #  The function outputs an error code if it fails (can be tested using LZ4F_isError())
 # 
 
-proc LZ4F_compressEnd*(cctx: LZ4F_compressionContext_t; dstBuffer: pointer;
-                      dstMaxSize: csize; cOptPtr: ptr LZ4F_compressOptions_t): csize {.
+proc LZ4F_compressEnd*(cctx: LZ4F_compressionContext; dstBuffer: pointer;
+                      dstMaxSize: csize; cOptPtr: ptr LZ4F_compressOptions): csize {.
     cdecl, importc: "LZ4F_compressEnd", dynlib: liblz4.}
 # LZ4F_compressEnd()
 #  When you want to properly finish the compressed frame, just call LZ4F_compressEnd().
@@ -177,10 +177,10 @@ proc LZ4F_compressEnd*(cctx: LZ4F_compressionContext_t; dstBuffer: pointer;
 
 # Resource management 
 
-proc LZ4F_createDecompressionContext*(dctxPtr: ptr LZ4F_decompressionContext_t;
-                                     version: cuint): LZ4F_errorCode_t {.cdecl,
+proc LZ4F_createDecompressionContext*(dctxPtr: ptr LZ4F_decompressionContext;
+                                     version: cuint): LZ4F_errorCode {.cdecl,
     importc: "LZ4F_createDecompressionContext", dynlib: liblz4.}
-proc LZ4F_freeDecompressionContext*(dctx: LZ4F_decompressionContext_t): LZ4F_errorCode_t {.
+proc LZ4F_freeDecompressionContext*(dctx: LZ4F_decompressionContext): LZ4F_errorCode {.
     cdecl, importc: "LZ4F_freeDecompressionContext", dynlib: liblz4.}
 # LZ4F_createDecompressionContext() :
 #  The first thing to do is to create an LZ4F_decompressionContext_t object, which will be used in all decompression operations.
@@ -194,8 +194,8 @@ proc LZ4F_freeDecompressionContext*(dctx: LZ4F_decompressionContext_t): LZ4F_err
 # 
 # Decompression 
 
-proc LZ4F_getFrameInfo*(dctx: LZ4F_decompressionContext_t;
-                       frameInfoPtr: ptr LZ4F_frameInfo_t; srcBuffer: pointer;
+proc LZ4F_getFrameInfo*(dctx: LZ4F_decompressionContext;
+                       frameInfoPtr: ptr LZ4F_frameInfo; srcBuffer: pointer;
                        srcSizePtr: ptr csize): csize {.cdecl,
     importc: "LZ4F_getFrameInfo", dynlib: liblz4.}
 # LZ4F_getFrameInfo()
@@ -211,9 +211,9 @@ proc LZ4F_getFrameInfo*(dctx: LZ4F_decompressionContext_t;
 #  You are expected to resume decompression from where it stopped (srcBuffer + *srcSizePtr)
 # 
 
-proc LZ4F_decompress*(dctx: LZ4F_decompressionContext_t; dstBuffer: pointer;
+proc LZ4F_decompress*(dctx: LZ4F_decompressionContext; dstBuffer: pointer;
                      dstSizePtr: ptr csize; srcBuffer: pointer;
-                     srcSizePtr: ptr csize; dOptPtr: ptr LZ4F_decompressOptions_t): csize {.
+                     srcSizePtr: ptr csize; dOptPtr: ptr LZ4F_decompressOptions): csize {.
     cdecl, importc: "LZ4F_decompress", dynlib: liblz4.}
 # LZ4F_decompress()
 #  Call this function repetitively to regenerate data compressed within srcBuffer.
