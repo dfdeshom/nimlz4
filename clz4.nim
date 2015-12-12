@@ -332,3 +332,5 @@ proc LZ4_decompress_fast_usingDict*(source: cstring; dest: cstring;
                                    originalSize: cint; dictStart: cstring;
                                    dictSize: cint): cint {.cdecl,
     importc: "LZ4_decompress_fast_usingDict", dynlib: liblz4.}
+
+include "clz4frame.nim"
