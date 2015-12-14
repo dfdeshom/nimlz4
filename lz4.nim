@@ -92,6 +92,34 @@ proc uncompress*(source:string):string =
 # Framing API
 #
 
+# Simple frame compression and decompression
+proc compress_frame(source:cstring,
+                    preferences:PLZ4F_preferences=nil): string =
+  let compress_bound =  LZ4F_compressFrameBound(source.len,preferences)
+  if compress_bound == 0:
+    raise newException(LZ4Exception,"Input size to large")
+ 
+  var dest = newString(compress_bound)
+  for i in 0..dest.len:
+    dest[i] = 'a'
+    
+  let bytes_written = LZ4F_compressFrame(dstBuffer=cstring(dest),
+                                         dstMaxSize=compress_bound,
+                                         srcBuffer=source,
+                                         srcSize=source.len,
+                                         preferencesPtr=preferences)
+
+  if LZ4F_isError(bytes_written) == 1:
+    let error = LZ4F_getErrorName(bytes_written)
+    raise newException(LZ4Exception,$error)
+ 
+  # echo ("header info:" & printable_header(dest) & "\n")
+  # echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
+  # echo ("last chars:" & print_char_values(dest[1000..1200]) & "\n")
+  # echo ("bytes_written: " & $bytes_written)
+  result = dest
+  
+
 proc newLZ4F_frameInfo():LZ4F_frameInfo =
   var info:LZ4F_frameInfo
   info.blockSizeID = LZ4F_blockSizeID.LZ4F_default
@@ -117,3 +145,4 @@ proc newLZ4F_preferences(compressionLevel:int=0,
   res.compressionLevel = cint(compressionLevel)
   res.autoFlush = cuint(autoFlush)
   result = res
+

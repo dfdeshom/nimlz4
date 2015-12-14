@@ -64,6 +64,8 @@ type
     autoFlush*: cuint          # 1 == always flush (reduce need for tmp buffer) 
     reserved*: array[4, cuint]  # must be zero for forward compatibility 
 
+  PLZ4F_preferences* = ptr LZ4F_preferences
+  
   LZ4F_compressionContext* = ptr object
     
   # must be aligned on 8-bytes 
@@ -87,10 +89,11 @@ const
 #  ********************************
 
 proc LZ4F_compressFrameBound*(srcSize: csize;
-                             preferencesPtr: ptr LZ4F_preferences): csize {.cdecl,
+                             preferencesPtr: PLZ4F_preferences): csize {.cdecl,
     importc: "LZ4F_compressFrameBound", dynlib: liblz4.}
-proc LZ4F_compressFrame*(dstBuffer: pointer; dstMaxSize: csize; srcBuffer: pointer;
-                        srcSize: csize; preferencesPtr: ptr LZ4F_preferences): csize {.
+proc LZ4F_compressFrame*(dstBuffer: pointer; dstMaxSize: csize;
+                         srcBuffer: pointer;srcSize: csize;
+                         preferencesPtr: PLZ4F_preferences): csize {.
     cdecl, importc: "LZ4F_compressFrame", dynlib: liblz4.}
 # LZ4F_compressFrame()
 #  Compress an entire srcBuffer into a valid LZ4 frame, as defined by specification v1.5.1
@@ -122,7 +125,7 @@ proc LZ4F_freeCompressionContext*(cctx: LZ4F_compressionContext): LZ4F_errorCode
 # Compression 
 
 proc LZ4F_compressBegin*(cctx: LZ4F_compressionContext; dstBuffer: pointer;
-                        dstMaxSize: csize; prefsPtr: ptr LZ4F_preferences): csize {.
+                        dstMaxSize: csize; prefsPtr: PLZ4F_preferences): csize {.
     cdecl, importc: "LZ4F_compressBegin", dynlib: liblz4.}
 # LZ4F_compressBegin() :
 #  will write the frame header into dstBuffer.
@@ -132,7 +135,7 @@ proc LZ4F_compressBegin*(cctx: LZ4F_compressionContext; dstBuffer: pointer;
 #  or an error code (can be tested using LZ4F_isError())
 # 
 
-proc LZ4F_compressBound*(srcSize: csize; prefsPtr: ptr LZ4F_preferences): csize {.
+proc LZ4F_compressBound*(srcSize: csize; prefsPtr: PLZ4F_preferences): csize {.
     cdecl, importc: "LZ4F_compressBound", dynlib: liblz4.}
 # LZ4F_compressBound() :
 #  Provides the minimum size of Dst buffer given srcSize to handle worst case situations.
