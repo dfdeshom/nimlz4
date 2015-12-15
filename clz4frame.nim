@@ -89,7 +89,7 @@ const
 #  ********************************
 
 proc LZ4F_compressFrameBound*(srcSize: csize;
-                             preferencesPtr: PLZ4F_preferences): csize {.cdecl,
+                             preferencesPtr: ptr LZ4F_preferences): csize {.cdecl,
     importc: "LZ4F_compressFrameBound", dynlib: liblz4.}
 proc LZ4F_compressFrame*(dstBuffer: pointer; dstMaxSize: csize;
                          srcBuffer: pointer;srcSize: csize;

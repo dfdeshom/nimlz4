@@ -93,34 +93,34 @@ proc uncompress*(source:string):string =
 #
 
 # Simple frame compression and decompression
-proc compress_frame(source:cstring,
-                    preferences:PLZ4F_preferences=nil): string =
-  let compress_bound =  LZ4F_compressFrameBound(source.len,preferences)
-  if compress_bound == 0:
+proc compress_frame*(source:string,
+                     preferences:var LZ4F_preferences): string =
+
+  let csource:cstring = cstring(source)
+  let pprefs = addr(preferences)
+  
+  let dest_max_size =  LZ4F_compressFrameBound(csource.len,pprefs)
+  if dest_max_size == 0:
     raise newException(LZ4Exception,"Input size to large")
  
-  var dest = newString(compress_bound)
-  for i in 0..dest.len:
-    dest[i] = 'a'
-    
+  var dest = newString(dest_max_size)
   let bytes_written = LZ4F_compressFrame(dstBuffer=cstring(dest),
-                                         dstMaxSize=compress_bound,
-                                         srcBuffer=source,
-                                         srcSize=source.len,
-                                         preferencesPtr=preferences)
+                                         dstMaxSize=dest_max_size,
+                                         srcBuffer=csource,
+                                         srcSize=csource.len,
+                                         preferencesPtr=pprefs)
 
   if LZ4F_isError(bytes_written) == 1:
     let error = LZ4F_getErrorName(bytes_written)
     raise newException(LZ4Exception,$error)
- 
-  # echo ("header info:" & printable_header(dest) & "\n")
-  # echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
-  # echo ("last chars:" & print_char_values(dest[1000..1200]) & "\n")
-  # echo ("bytes_written: " & $bytes_written)
+
+  # Note: The last 4 bytes of the resulting compressed string
+  # will be 0000, according to the LZ4 frame format
+  dest.setLen(bytes_written)
   result = dest
   
 
-proc newLZ4F_frameInfo():LZ4F_frameInfo =
+proc newLZ4F_frameInfo*():LZ4F_frameInfo =
   var info:LZ4F_frameInfo
   info.blockSizeID = LZ4F_blockSizeID.LZ4F_default
   info.blockMode = LZ4F_blockMode.LZ4F_blockLinked
@@ -129,7 +129,7 @@ proc newLZ4F_frameInfo():LZ4F_frameInfo =
   info.contentSize = 0
   result = info
   
-proc newLZ4F_preferences(frame_info:LZ4F_frameInfo,
+proc newLZ4F_preferences*(frame_info:LZ4F_frameInfo,
                          compressionLevel:int=0,
                          autoFlush:int=1):LZ4F_preferences =
   var res:LZ4F_preferences
@@ -138,7 +138,7 @@ proc newLZ4F_preferences(frame_info:LZ4F_frameInfo,
   res.autoFlush = cuint(autoFlush)
   result = res
 
-proc newLZ4F_preferences(compressionLevel:int=0,
+proc newLZ4F_preferences*(compressionLevel:int=0,
                          autoFlush:int=1):LZ4F_preferences =
   var res:LZ4F_preferences
   res.frameInfo = newLZ4F_frameInfo()
