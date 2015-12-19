@@ -4,6 +4,7 @@
 
 import clz4
 import clz4frame
+import marshal
 
 type
   LZ4Exception* = object of Exception
@@ -37,6 +38,11 @@ proc printable_header(s:string):string =
 proc print_char_values(s:string):string =
   result = ""
   for i in s.low..s.high:
+    result.add($int(s[i]) & "|")
+
+proc print_char_values(s:cstring,num:int):string =
+  result = ""
+  for i in 0..num:
     result.add($int(s[i]) & "|")
 
 proc compress*(source:string, level:int=1):string =
@@ -92,10 +98,20 @@ proc uncompress*(source:string):string =
 # Framing API
 #
 
+proc newLZ4F_frameInfo*():LZ4F_frameInfo =
+  var info:LZ4F_frameInfo
+  info.blockSizeID = LZ4F_blockSizeID.LZ4F_default
+  info.blockMode = LZ4F_blockMode.LZ4F_blockLinked
+  info.contentChecksumFlag = LZ4F_contentChecksum.LZ4F_noContentChecksum
+  info.frameType = LZ4F_frameType.LZ4F_frame
+  info.contentSize = 0
+  result = info
+
 # Simple frame compression and decompression
 proc compress_frame*(source:string,
                      preferences:var LZ4F_preferences): string =
-
+  ## Compress an entire string loaded into memory
+  ## into a LZ4 frame
   let csource:cstring = cstring(source)
   let pprefs = addr(preferences)
   
@@ -119,15 +135,105 @@ proc compress_frame*(source:string,
   dest.setLen(bytes_written)
   result = dest
   
+proc decompress_frame*(source:string): string =
+  # create decompression context
+  var dcontext:LZ4F_decompressionContext
+  let context_status = LZ4F_createDecompressionContext(addr(dcontext),
+                                                       cuint(LZ4F_VERSION))
+  if LZ4F_isError(context_status) == 1:
+    let error = LZ4F_getErrorName(context_status)
+    raise newException(LZ4Exception,$error)
 
-proc newLZ4F_frameInfo*():LZ4F_frameInfo =
-  var info:LZ4F_frameInfo
-  info.blockSizeID = LZ4F_blockSizeID.LZ4F_default
-  info.blockMode = LZ4F_blockMode.LZ4F_blockLinked
-  info.contentChecksumFlag = LZ4F_contentChecksum.LZ4F_noContentChecksum
-  info.frameType = LZ4F_frameType.LZ4F_frame
-  info.contentSize = 0
-  result = info
+  var csource = cstring(source)
+  var dest_size:int = source.len 
+  var dest:ptr char
+  dest = cast[ptr char](alloc0(sizeof(char) * dest_size))
+    
+  var options:LZ4F_decompressOptions
+  let src_size:int = source.len
+  
+  var start:int = 0
+  var stop:int = src_size
+  let initial = stop
+  var i = 0
+  result = ""
+
+  # find initial amount to read for `stop`
+  var frame = newLZ4F_frameInfo()
+  var d = source.len 
+  let initial_hint = LZ4F_getFrameInfo(dcontext,
+                                      addr(frame),
+                                      csource,
+                                      addr(d))
+  if LZ4F_isError(initial_hint) == 1:
+      let error = LZ4F_getErrorName(initial_hint)
+      raise newException(LZ4Exception,$error)
+    
+  dest_size = initial_hint
+  start = d
+  echo ("got initial hint:" & $stop)
+  echo ("frame info:" & $$frame)
+  
+  while true:
+    echo ("bef start:" & $start)
+    echo ("bef stop:" & $stop)
+    echo ("bef initial:" & $initial)
+    var hint_src_size_bytes = LZ4F_decompress(dcontext,
+                                              dest,
+                                              addr(dest_size),
+                                              csource.offset(start),
+                                              addr(stop),
+                                              addr(options))
+    
+    if LZ4F_isError(hint_src_size_bytes ) == 1:
+      let error = LZ4F_getErrorName(hint_src_size_bytes )
+      raise newException(LZ4Exception,$error)
+
+    var t = stop + start
+    echo ("stop + start:" & $t)
+    echo ("start:" & $start)
+    echo ("stop/hint:" & $stop)
+    if t >= initial:
+      echo ("XXX")
+    
+    #echo("\ndest so far:" & print_char_values(dest[(dest_size-30)..(dest_size)]))
+    #echo("\ncdest len: " & $cstring(dest).len)
+    if hint_src_size_bytes == 0:
+      echo("decoding done!")
+      echo ("done start:" & $start)
+      echo ("done stop:" & $stop)
+      break
+
+      
+    start += stop
+    stop = hint_src_size_bytes
+    echo ("aft start:" & $start)
+    echo ("aft stop/hint:" & $stop)
+   
+    i += 1
+    if i > 100_000:
+      echo("break!!")
+      break
+
+    result = result & $cstring(dest)
+    #result.add($dest)
+    zeroMem(dest,dest_size)
+    echo("\n")
+    
+  # we are done, free the context
+  let free_status = LZ4F_freeDecompressionContext(dcontext)
+  if LZ4F_isError(free_status) == 1:
+    let error = LZ4F_getErrorName(free_status)
+    raise newException(LZ4Exception,$error)
+
+  result = result & $cstring(dest)
+  #result.add($dest)
+  echo ("result.len:" & $result.len)
+  #result.setLen(hints)
+  echo ("result.len after resize:" & $result.len)
+  echo("\nres last values:" & print_char_values(result[result.high-30..(result.high)]))
+
+  dealloc(dest)
   
 proc newLZ4F_preferences*(frame_info:LZ4F_frameInfo,
                          compressionLevel:int=0,
