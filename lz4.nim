@@ -4,7 +4,6 @@
 
 import clz4
 import clz4frame
-import marshal
 
 type
   LZ4Exception* = object of Exception
@@ -55,8 +54,6 @@ proc compress*(source:string, level:int=1):string =
     raise newException(LZ4Exception,"Input size to large")
  
   var dest = newString(compress_bound)
-  for i in 0..dest.len:
-    dest[i] = 'a'
     
   let bytes_written = LZ4_compress_fast(source=cstring(source),
                                         dest=(cstring(dest)).offset(HEADER_SIZE),
@@ -70,10 +67,10 @@ proc compress*(source:string, level:int=1):string =
   store_header(dest,cast[uint32](source.len))
 
   dest.setLen(bytes_written+HEADER_SIZE)
-  echo ("header info:" & printable_header(dest) & "\n")
-  echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
-  echo ("last chars:" & print_char_values(dest[1000..1200]) & "\n")
-  echo ("bytes_written: " & $bytes_written)
+  # echo ("header info:" & printable_header(dest) & "\n")
+  # echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
+  # echo ("last chars:" & print_char_values(dest[1000..1200]) & "\n")
+  # echo ("bytes_written: " & $bytes_written)
   result = dest
   
 
@@ -87,7 +84,7 @@ proc uncompress*(source:string):string =
                                                compressedSize=cast[cint](source.len-HEADER_SIZE),
                                                maxDecompressedSize=cast[cint](uncompressed_size))
 
-  echo("bytes_decompressed:" & $bytes_decompressed)
+  # echo("bytes_decompressed:" & $bytes_decompressed)
   if bytes_decompressed < 0 :
     raise newException(LZ4Exception,"Invalid input or buffer too small")
    
@@ -103,7 +100,7 @@ proc newLZ4F_frameInfo*():LZ4F_frameInfo =
   result = info
 
 proc blockSizeId_to_bytes(b:LZ4F_blockSizeID): int =
-  # Get the right number of bytes from a `LZ4F_blockSizeID`
+  ## Get the right number of bytes from a `LZ4F_blockSizeID`
   case b
   of LZ4F_default:
     result = 64 * 1024
@@ -117,7 +114,7 @@ proc blockSizeId_to_bytes(b:LZ4F_blockSizeID): int =
     result = 4 * 1024 * 1024
 
 #
-# Framing API
+# LZ4 Frame API
 #
 
 # Simple frame compression and decompression
@@ -145,8 +142,8 @@ proc compress_frame*(source: var string,
     raise newException(LZ4Exception,$error)
 
   # Note: The last 4 bytes of the resulting compressed string
-  # will be 0000, according to the LZ4 frame format
-  # This happens only if there is content checksum enabled
+  # will be 0000, according to the LZ4 frame format.
+  # This happens only if content checksum disabled
   # `LZ4F_preferences` (the default)
   result = newString(bytes_written)
   copyMem(addr(result[0]), dest, bytes_written)
