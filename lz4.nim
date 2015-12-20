@@ -151,6 +151,9 @@ proc compress_frame*(source: var string,
     
 proc uncompress_frame*(source: var string): string =
   ## decompress a string that uses the LZ4 frame format
+
+  # TODO: wrap in try/catch statement so that
+  # resources get freed cleanly
   
   # create decompression context
   var dcontext:LZ4F_decompressionContext
