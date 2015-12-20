@@ -1,9 +1,12 @@
 import lz4
 import clz4frame
-#var input = readFile("/home/dfdeshom/code/lz4/lz4_Frame_format.md")
-var input = readFile("/home/dfdeshom/code/lz4/lib/lz4.c")
-#var input = readFile("big.txt")
-#var input = readFile("LICENSE")
+var input:string
+#input = readFile("/home/dfdeshom/code/lz4/lz4_Frame_format.md")
+# input = readFile("/home/dfdeshom/code/lz4/lib/lz4.c")
+input = readFile("big.txt")
+# input = readFile("LICENSE")
+input = readFile("/home/dfdeshom/cp.mp4")
+echo ("uncompressed size: " & $input.len)
 
 proc test_compress_fast() = 
   var compressed = compress(input,level=1)
@@ -18,15 +21,15 @@ proc test_compress_fast() =
 
 proc test_compress_frame() =
   var prefs = newLZ4F_preferences()
-  #prefs.frameInfo.contentChecksumFlag = LZ4F_contentChecksum.LZ4F_contentChecksumEnabled
+  #prefs.frameInfo.blockSizeID = LZ4F_max256KB
   var compressed = compress_frame(input,prefs)
   #echo ($compressed)
   #echo ($compressed.len)
-  for i in 0..1:
-    var decompressed = decompress_frame(compressed)
+
+  var decompressed = uncompress_frame(compressed)
   #echo("\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n" & decompressed)
   #writeFile("res",decompressed)
-    echo (input == decompressed)
+  echo (input == decompressed)
 
   
 test_compress_frame()
