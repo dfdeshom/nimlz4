@@ -13,7 +13,10 @@ type
 #   https://github.com/fowlmouth/nimlibs/blob/master/fowltek/pointer_arithm.nim
 proc offset[cstring](some: cstring; b: int): cstring =
   result = cast[cstring](cast[int](some) + (b * 1))
-  
+
+#proc offset[pointer](some: pointer; b: int): char =
+#  result = cast[ptr char](cast[int](some) + (b * 1))
+
 proc store_header(source:var string, value:uint32) =
   ## store header information in `source`. We pre-pad this
   ## information to any compressed bytes we have
@@ -93,11 +96,6 @@ proc uncompress*(source:string):string =
    
   result = dest
 
-
-#
-# Framing API
-#
-
 proc newLZ4F_frameInfo*():LZ4F_frameInfo =
   var info:LZ4F_frameInfo
   info.blockSizeID = LZ4F_blockSizeID.LZ4F_default
@@ -107,23 +105,42 @@ proc newLZ4F_frameInfo*():LZ4F_frameInfo =
   info.contentSize = 0
   result = info
 
+proc blockSizeId_to_bytes(b:LZ4F_blockSizeID): int =
+  # Get the right number of bytes from a `LZ4F_blockSizeID`
+  case b
+  of LZ4F_default:
+    result = 64 * 1024
+  of LZ4F_max64KB:
+    result = 64 * 1024
+  of LZ4F_max256KB:
+    result = 256 * 1024
+  of LZ4F_max1MB:
+    result = 1024 * 1024
+  of LZ4F_max4MB:
+    result = 4 * 1024 * 1024
+
+#
+# Framing API
+#
+
 # Simple frame compression and decompression
-proc compress_frame*(source:string,
+proc compress_frame*(source: var string,
                      preferences:var LZ4F_preferences): string =
   ## Compress an entire string loaded into memory
   ## into a LZ4 frame
-  let csource:cstring = cstring(source)
+  
+  let source_len = source.len
   let pprefs = addr(preferences)
   
-  let dest_max_size =  LZ4F_compressFrameBound(csource.len,pprefs)
+  let dest_max_size =  LZ4F_compressFrameBound(source_len,pprefs)
   if dest_max_size == 0:
     raise newException(LZ4Exception,"Input size to large")
  
-  var dest = newString(dest_max_size)
-  let bytes_written = LZ4F_compressFrame(dstBuffer=cstring(dest),
+  var dest = cast[ptr char](alloc0(sizeof(char) * dest_max_size))
+  let bytes_written = LZ4F_compressFrame(dstBuffer=dest,
                                          dstMaxSize=dest_max_size,
-                                         srcBuffer=csource,
-                                         srcSize=csource.len,
+                                         srcBuffer=addr(source[0]),
+                                         srcSize=source_len,
                                          preferencesPtr=pprefs)
 
   if LZ4F_isError(bytes_written) == 1:
@@ -132,10 +149,15 @@ proc compress_frame*(source:string,
 
   # Note: The last 4 bytes of the resulting compressed string
   # will be 0000, according to the LZ4 frame format
-  dest.setLen(bytes_written)
-  result = dest
+  # This happens only if there is content checksum enabled
+  # `LZ4F_preferences` (the default)
+  result = newString(bytes_written)
+  copyMem(addr(result[0]), dest, bytes_written)
+  dealloc(dest)
+    
+proc uncompress_frame*(source: var string): string =
+  ## decompress a string that uses the LZ4 frame format
   
-proc decompress_frame*(source:string): string =
   # create decompression context
   var dcontext:LZ4F_decompressionContext
   let context_status = LZ4F_createDecompressionContext(addr(dcontext),
@@ -144,81 +166,73 @@ proc decompress_frame*(source:string): string =
     let error = LZ4F_getErrorName(context_status)
     raise newException(LZ4Exception,$error)
 
-  var csource = cstring(source)
-  var dest_size:int = source.len 
-  var dest:ptr char
-  dest = cast[ptr char](alloc0(sizeof(char) * dest_size))
-    
-  var options:LZ4F_decompressOptions
-  let src_size:int = source.len
+  # make source into a char ptr
+  var src_size:int = source.len
+  var csource = cast[ptr char](alloc0(sizeof(char) * src_size))
+  copyMem(csource,addr(source[0]),Natural(src_size))
   
-  var start:int = 0
-  var stop:int = src_size
-  let initial = stop
-  var i = 0
-  result = ""
-
-  # find initial amount to read for `stop`
+  var options:LZ4F_decompressOptions
+  var start = 0
+  var stop = src_size
+  
+  echo ("src_size: " & $src_size)
+  
+  # try to get frame header info to allocate
+  # the right size for the destination buffer
   var frame = newLZ4F_frameInfo()
-  var d = source.len 
   let initial_hint = LZ4F_getFrameInfo(dcontext,
                                       addr(frame),
                                       csource,
-                                      addr(d))
+                                      addr(src_size))
   if LZ4F_isError(initial_hint) == 1:
       let error = LZ4F_getErrorName(initial_hint)
       raise newException(LZ4Exception,$error)
+
+  # if frame.contentSize is set, use that
+  # else get max frame size from the blockSizeID
+  var dest_size:int
+  var block_size:int
+  let content_size = int(frame.contentSize)
+  if  content_size > 0:
+    dest_size = content_size
+  else:
+    block_size = blockSizeId_to_bytes(frame.blockSizeID)
+    dest_size = block_size
     
-  dest_size = initial_hint
-  start = d
-  echo ("got initial hint:" & $stop)
-  echo ("frame info:" & $$frame)
+  var dest:ptr char = cast[ptr char](alloc0(sizeof(char) * dest_size))
   
+  # after calling `LZ4F_getFrameInfo`, we must move
+  # to the next bytes
+  start = src_size
+
+  result = newString(dest_size)
+  # index of the last element of the result buffer
+  var resbeg = 0
+  # size so far of the result buffer
+  var cumulative_size = dest_size
   while true:
-    echo ("bef start:" & $start)
-    echo ("bef stop:" & $stop)
-    echo ("bef initial:" & $initial)
-    var hint_src_size_bytes = LZ4F_decompress(dcontext,
+    let hint_src_size_bytes = LZ4F_decompress(dcontext,
                                               dest,
                                               addr(dest_size),
                                               csource.offset(start),
                                               addr(stop),
                                               addr(options))
-    
+
     if LZ4F_isError(hint_src_size_bytes ) == 1:
-      let error = LZ4F_getErrorName(hint_src_size_bytes )
+      let error = LZ4F_getErrorName(hint_src_size_bytes)
       raise newException(LZ4Exception,$error)
 
-    var t = stop + start
-    echo ("stop + start:" & $t)
-    echo ("start:" & $start)
-    echo ("stop/hint:" & $stop)
-    if t >= initial:
-      echo ("XXX")
-    
-    #echo("\ndest so far:" & print_char_values(dest[(dest_size-30)..(dest_size)]))
-    #echo("\ncdest len: " & $cstring(dest).len)
     if hint_src_size_bytes == 0:
-      echo("decoding done!")
-      echo ("done start:" & $start)
-      echo ("done stop:" & $stop)
       break
-
-      
+  
     start += stop
     stop = hint_src_size_bytes
-    echo ("aft start:" & $start)
-    echo ("aft stop/hint:" & $stop)
-   
-    i += 1
-    if i > 100_000:
-      echo("break!!")
-      break
-
-    result = result & $cstring(dest)
-    #result.add($dest)
+    
+    moveMem(addr(result[resbeg]),dest,dest_size)
+    resbeg += dest_size 
+    cumulative_size += dest_size
+    result.setLen(resbeg+dest_size)
     zeroMem(dest,dest_size)
-    echo("\n")
     
   # we are done, free the context
   let free_status = LZ4F_freeDecompressionContext(dcontext)
@@ -226,15 +240,17 @@ proc decompress_frame*(source:string): string =
     let error = LZ4F_getErrorName(free_status)
     raise newException(LZ4Exception,$error)
 
-  result = result & $cstring(dest)
-  #result.add($dest)
-  echo ("result.len:" & $result.len)
-  #result.setLen(hints)
-  echo ("result.len after resize:" & $result.len)
-  echo("\nres last values:" & print_char_values(result[result.high-30..(result.high)]))
-
-  dealloc(dest)
+  moveMem(addr(result[resbeg]),dest,dest_size)
   
+  # when done reading the source buffer, the dest buffer
+  # might only be partially-filled. Get exactly
+  # how many spaces to chop up from the result buffer
+  let unfilled_space = block_size - dest_size
+  result.setLen(cumulative_size-unfilled_space)
+  
+  dealloc(dest)
+  dealloc(csource)
+    
 proc newLZ4F_preferences*(frame_info:LZ4F_frameInfo,
                          compressionLevel:int=0,
                          autoFlush:int=1):LZ4F_preferences =
