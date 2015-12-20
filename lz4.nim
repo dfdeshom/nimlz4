@@ -14,9 +14,6 @@ type
 proc offset[cstring](some: cstring; b: int): cstring =
   result = cast[cstring](cast[int](some) + (b * 1))
 
-#proc offset[pointer](some: pointer; b: int): char =
-#  result = cast[ptr char](cast[int](some) + (b * 1))
-
 proc store_header(source:var string, value:uint32) =
   ## store header information in `source`. We pre-pad this
   ## information to any compressed bytes we have
