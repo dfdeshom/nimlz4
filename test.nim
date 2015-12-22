@@ -1,35 +1,28 @@
 import lz4
 import clz4frame
-var input:string
-#input = readFile("/home/dfdeshom/code/lz4/lz4_Frame_format.md")
-# input = readFile("/home/dfdeshom/code/lz4/lib/lz4.c")
-input = readFile("big.txt")
-# input = readFile("LICENSE")
-input = readFile("/home/dfdeshom/cp.mp4")
-echo ("uncompressed size: " & $input.len)
+import unittest
+import osproc
 
-proc test_compress_fast() = 
-  var compressed = compress(input,level=1)
-  echo("compressed: " & $compressed)
-  echo("compressed length: " & $compressed.len)
-  echo("original length: " & $input.len)
-
-  var uncompressed = uncompress(compressed)
-  echo("uncompressed==input: " & $(uncompressed==input))
-
-  var prefs:LZ4F_preferences
-
-proc test_compress_frame() =
-  var prefs = newLZ4F_preferences()
-  #prefs.frameInfo.blockSizeID = LZ4F_max256KB
-  var compressed = compress_frame(input,prefs)
-  #echo ($compressed)
-  #echo ($compressed.len)
-
-  var decompressed = uncompress_frame(compressed)
-  #echo("\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n" & decompressed)
-  #writeFile("res",decompressed)
-  echo (input == decompressed)
-
+suite "NimLZ4 tests":
   
-test_compress_frame()
+  setup:
+    discard execCmdEx("dd if=/dev/urandom of=input.file bs=1M count=50")
+    var input = readFile("input.file")
+
+  tearDown:
+    discard execCmdEx("rm input.file")
+
+  test "LZ4 fast compression and decompression is correct":
+    var compressed = compress(input,level=2)
+    var uncompressed = uncompress(compressed)
+    check(uncompressed==input)
+
+  test "LZ4 compression and decompression of frames is correct":
+    var prefs = newLZ4F_preferences()
+    var compressed = compress_frame(input,prefs)
+    var decompressed = uncompress_frame(compressed)
+    check(input == decompressed)
+
+
+
+

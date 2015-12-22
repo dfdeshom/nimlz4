@@ -67,10 +67,6 @@ proc compress*(source:string, level:int=1):string =
   store_header(dest,source.len)
   
   dest.setLen(bytes_written+HEADER_SIZE)
-  # echo ("header info:" & printable_header(dest) & "\n")
-  # echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
-  # echo ("last chars:" & print_char_values(dest[1000..1200]) & "\n")
-  # echo ("bytes_written: " & $bytes_written)
   result = dest
   
 
@@ -170,9 +166,7 @@ proc uncompress_frame*(source: var string): string =
   var options:LZ4F_decompressOptions
   var start = 0
   var stop = src_size
-  
-  echo ("src_size: " & $src_size)
-  
+    
   # try to get frame header info to allocate
   # the right size for the destination buffer
   var frame = newLZ4F_frameInfo()
