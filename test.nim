@@ -2,6 +2,7 @@ import lz4
 import clz4frame
 import unittest
 import osproc
+import os
 
 suite "NimLZ4 tests":
   
@@ -14,7 +15,7 @@ suite "NimLZ4 tests":
       var input = readFile("input.file")
 
   tearDown:
-    discard execCmdEx("rm input.file")
+    removeFile("input.file")
 
   test "LZ4 fast compression and decompression is correct":
     var compressed = compress(input,level=2)
