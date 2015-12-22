@@ -6,8 +6,12 @@ import osproc
 suite "NimLZ4 tests":
   
   setup:
-    discard execCmdEx("dd if=/dev/urandom of=input.file bs=1M count=50")
-    var input = readFile("input.file")
+    when defined(windows):
+      discard execCmdEx("fsutil file createnew input.file 50000000")
+    else:
+      discard execCmdEx("dd if=/dev/urandom of=input.file bs=1M count=50")
+      
+      var input = readFile("input.file")
 
   tearDown:
     discard execCmdEx("rm input.file")
