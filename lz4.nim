@@ -13,7 +13,7 @@ type
 proc offset[cstring](some: cstring; b: int): cstring =
   result = cast[cstring](cast[int](some) + (b * 1))
 
-proc store_header(source:var string, value:uint32) =
+proc store_header(source:var string, value:int) =
   ## store header information in `source`. We pre-pad this
   ## information to any compressed bytes we have
   source[0] = cast[char](value and 0xff)
@@ -27,7 +27,7 @@ proc load_header(source:string):int =
   let c1 = cast[int](source[1])
   let c2 = cast[int](source[2])
   let c3 = cast[int](source[3])
-  return (c0 or (c1 shl 8) or (c2 shl 16) or (c3 shl 23))
+  return (c0 or (c1 shl 8) or (c2 shl 16) or (c3 shl 24))
 
 proc printable_header(s:string):string =
   result = ""
@@ -48,10 +48,10 @@ proc compress*(source:string, level:int=1):string =
   ## Compress a string.
   ## The compressed string contains a header that stores
   ## the size of `source`. This is useful for decompression later
-  
+
   let compress_bound =  LZ4_compressBound(source.len) + HEADER_SIZE
   if compress_bound == 0:
-    raise newException(LZ4Exception,"Input size to large")
+    raise newException(LZ4Exception,"Input size too large")
  
   var dest = newString(compress_bound)
     
@@ -64,8 +64,8 @@ proc compress*(source:string, level:int=1):string =
   if bytes_written == 0:
     raise newException(LZ4Exception,"Destination buffer too small")
  
-  store_header(dest,cast[uint32](source.len))
-
+  store_header(dest,source.len)
+  
   dest.setLen(bytes_written+HEADER_SIZE)
   # echo ("header info:" & printable_header(dest) & "\n")
   # echo ("first chars:" & print_char_values(dest[0..100]) & "\n")
@@ -84,7 +84,6 @@ proc uncompress*(source:string):string =
                                                compressedSize=cast[cint](source.len-HEADER_SIZE),
                                                maxDecompressedSize=cast[cint](uncompressed_size))
 
-  # echo("bytes_decompressed:" & $bytes_decompressed)
   if bytes_decompressed < 0 :
     raise newException(LZ4Exception,"Invalid input or buffer too small")
    
