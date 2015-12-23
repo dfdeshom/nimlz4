@@ -21,6 +21,11 @@ suite "NimLZ4 tests":
     var uncompressed = uncompress(compressed)
     check(uncompressed==input)
 
+  test "LZ4 high compression mode is correct":
+    var compressed = compress_more(input,level=9)
+    var uncompressed = uncompress(compressed)
+    check(uncompressed==input)
+
   test "LZ4 compression and decompression of frames is correct":
     var prefs = newLZ4F_preferences()
     var compressed = compress_frame(input,prefs)
@@ -28,5 +33,12 @@ suite "NimLZ4 tests":
     check(input == decompressed)
 
 
+suite "Multiple compression methods":
+
+  test "LZ4 high compression mode yields a smaller file":
+    var input = readFile("README.md")
+    var compressed_more = compress_more(input,level=9)
+    var compressed2 = compress(input)
+    check(compressed_more.len < compressed2.len)
 
 

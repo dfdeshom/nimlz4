@@ -4,6 +4,7 @@
 
 import clz4
 import clz4frame
+import clz4hc
 
 type
   LZ4Exception* = object of Exception
@@ -44,6 +45,9 @@ proc print_char_values(s:cstring,num:int):string =
   for i in 0..num:
     result.add($int(s[i]) & "|")
 
+#
+# LZ4 block API
+#
 proc compress*(source:string, level:int=1):string =
   ## Compress a string.
   ## The compressed string contains a header that stores
@@ -90,6 +94,31 @@ proc uncompress*(source:string):string =
    
   result = dest
 
+# High compression mode
+proc compress_more*(source:string,level:int=4):string =
+  ## High block compression mode for LZ4. Achieve a higher compression
+  ## ratio at the expense of CPU time
+  let compress_bound =  LZ4_compressBound(source.len) + HEADER_SIZE
+  if compress_bound == 0:
+    raise newException(LZ4Exception,"Input size too large")
+ 
+  var dest = newString(compress_bound)
+    
+  let bytes_written = LZ4_compress_HC(src=cstring(source),
+                                      dst=(cstring(dest)).offset(HEADER_SIZE),
+                                      srcSize=cast[cint](source.len),
+                                      maxDstSize=cast[cint](compress_bound),
+                                      compressionLevel=cast[cint](level))
+                                        
+  if bytes_written == 0:
+    raise newException(LZ4Exception,"Destination buffer too small")
+ 
+  store_header(dest,source.len)
+  
+  dest.setLen(bytes_written+HEADER_SIZE)
+  result = dest
+  
+  
 #
 # LZ4 Frame API
 #
