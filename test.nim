@@ -1,5 +1,4 @@
 import lz4
-import clz4frame
 import unittest
 import osproc
 import os
@@ -12,7 +11,7 @@ suite "NimLZ4 tests":
     else:
       discard execCmdEx("dd if=/dev/urandom of=input.file bs=1M count=50")
       
-      var input = readFile("input.file")
+    var input = readFile("input.file")
 
   tearDown:
     removeFile("input.file")
