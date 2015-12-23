@@ -48,7 +48,9 @@ proc compress*(source:string, level:int=1):string =
   ## Compress a string.
   ## The compressed string contains a header that stores
   ## the size of `source`. This is useful for decompression later
-
+  ## Data compressed by this function can only reliably be decompressed
+  ## by `uncompress`. To have a portable LZ4 format, use the LZ4 frame
+  ## functions
   let compress_bound =  LZ4_compressBound(source.len) + HEADER_SIZE
   if compress_bound == 0:
     raise newException(LZ4Exception,"Input size too large")
@@ -73,6 +75,9 @@ proc compress*(source:string, level:int=1):string =
 proc uncompress*(source:string):string =
   ## Decompress a string. The compressed string is assumed to have
   ## a header entry that stores the size of the original string
+  ## Data decompressed by this function assumes it was already compressed
+  ## by the `compress` function. To use a portable LZ4 format, use the LZ4 frame
+  ## functions
   let uncompressed_size = load_header(source)
   var dest = newString(uncompressed_size)
   let bytes_decompressed = LZ4_decompress_safe(source=(cstring(source)).offset(HEADER_SIZE),
@@ -134,7 +139,7 @@ proc blockSizeId_to_bytes(b:LZ4F_blockSizeID): int =
 proc compress_frame*(source: var string,
                      preferences:var LZ4F_preferences): string =
   ## Compress an entire string loaded into memory
-  ## into a LZ4 frame
+  ## into a LZ4 frame.
   
   let source_len = source.len
   let pprefs = addr(preferences)
