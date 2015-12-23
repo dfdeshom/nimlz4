@@ -2,8 +2,8 @@
 Nim wrapper for LZ4
 
 ## Simple compression (block API)
-Use this API when you don't care about interoperability and assume
-that you will only use this wrapper to compress and decompress strings:
+Use this API when you don't care about interoperability and assume only
+this wrapper will be used to compress and decompress strings:
 
     import lz4
     var input = readFile("LICENSE")
