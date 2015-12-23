@@ -12,7 +12,7 @@ that you will only use this wrapper to compress and decompress strings:
     echo(uncompressed==input)
 
 If you would like a better compression ratio
-at the expense of CPU timr, use `compress_more()`. 
+at the expense of CPU time, use `compress_more()`. 
 
 ## Frame compression (auto-framing API)
 Use the frame API when you want your compressed data to be
