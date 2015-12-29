@@ -5,6 +5,7 @@
 import clz4
 import clz4frame
 import clz4hc
+import sequtils
 
 type
   LZ4Exception* = object of Exception
@@ -303,3 +304,57 @@ proc uncompress_frame*(source: var string): string =
     if LZ4F_isError(free_status) == 1:
       let error = LZ4F_getErrorName(free_status)
       raise newException(LZ4Exception,$error)
+
+
+const
+  BLOCK_BYTES = 1024
+
+type
+  page = object
+    first:ptr char
+    sec:ptr char
+
+proc `[]`(p:page,index:int): ptr char =
+  if index mod 2 == 0 :
+    result = p.first
+  else:
+    result = p.sec
+    
+proc stream_compress(source:var string): string =
+  var inbuf:page
+  var inbufindex = 0
+  
+  var lz4stream:PLZ4Stream
+  LZ4_resetStream(lz4stream)
+
+  let size:int = LZ4_compressBound(BLOCK_BYTES) 
+  var cmpbuf:ptr char
+  cmpbuf = cast[ptr char](alloc0(sizeof(char) * size))
+
+  #var source_seq = source[0..100] #
+  var source_seq = toSeq(source[0..100])
+  while true:
+    var inptr:ptr char = inbuf[inbufindex]
+    inptr = cast[ptr char](alloc0(sizeof(char) * size))
+    # get input from stream
+    var inbytes = source_seq.distribute(Positive(100),false) #source[0..100].len
+    #if inbytes == 0:
+    #  break
+        
+    var cmpbytes = LZ4_compress_fast_continue(lz4stream,
+                                              inptr,
+                                              cmpbuf,
+                                              cint(inbytes.len),
+                                              cint(sizeof(cmpbuf)),
+                                              cint(1))
+    if cmpbytes < 0 :
+      break
+
+    # write size and compressed output to out buffer
+
+    inbufindex = (inbufindex+1) mod 2 
+
+  dealloc(cmpbuf)
+  dealloc(inbuf[0])
+  dealloc(inbuf[1])
+  result = ""

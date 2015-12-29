@@ -195,7 +195,8 @@ proc LZ4_decompress_safe_partial*(source: cstring; dest: cstring;
 type
   LZ4Stream = object
     table*: array[LZ4_STREAMSIZE_U64, clonglong]
-  PLZ4Stream = ptr LZ4Stream
+
+  PLZ4Stream* = ptr LZ4Stream
 
   
 #
