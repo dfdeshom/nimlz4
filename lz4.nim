@@ -31,21 +31,6 @@ proc load_header(source:string):int =
   let c3 = cast[int](source[3])
   return (c0 or (c1 shl 8) or (c2 shl 16) or (c3 shl 24))
 
-proc printable_header(s:string):string =
-  result = ""
-  for i in 0..100:
-    result.add($int(s[i]) & "|")
-
-proc print_char_values(s:string):string =
-  result = ""
-  for i in s.low..s.high:
-    result.add($int(s[i]) & "|")
-
-proc print_char_values(s:cstring,num:int):string =
-  result = ""
-  for i in 0..num:
-    result.add($int(s[i]) & "|")
-
 #
 # LZ4 block API
 #
